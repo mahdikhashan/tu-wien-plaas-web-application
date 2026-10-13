@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NERDS uc - Wild Cam Observation Log</title>
+</head>
+<body>
+  <h1>NERDS uc - Wild Cam Observation Log</h1>
+
+  <h2>Record an observation</h2>
+
+  <form method="POST" action="/observations">
+    <p>
+      <label for="animal">Animal:</label>
+      <input id="animal" name="animal" maxlength="200" required>
+    </p>
+
+    <p>
+      <label for="stream">Stream name or URL:</label>
+      <input id="stream" name="stream" maxlength="500" required>
+    </p>
+
+    <p>
+      <label for="observed_at">Observed at (UTC):</label>
+      <input
+        id="observed_at"
+        name="observed_at"
+        type="datetime-local"
+        required
+      >
+    </p>
+
+    <p>
+      <label for="notes">Notes:</label>
+      <textarea id="notes" name="notes" maxlength="2000"></textarea>
+    </p>
+
+    <button type="submit">Save observation</button>
+  </form>
+
+  <h2>Observation log (<%= observations.length %>)</h2>
+
+  <table border="1">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Animal</th>
+        <th>Stream</th>
+        <th>Observed at (UTC)</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (observations.length === 0) { %>
+        <tr>
+          <td colspan="5">No observations recorded yet.</td>
+        </tr>
+      <% } %>
+
+      <% for (const observation of observations) { %>
+        <tr>
+          <td><%= observation.id %></td>
+          <td><%= observation.animal %></td>
+          <td><%= observation.stream %></td>
+          <td><%= observation.observed_at %></td>
+          <td><%= observation.notes ?? "" %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</body>
+</html>
