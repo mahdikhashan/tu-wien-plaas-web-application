@@ -2,16 +2,25 @@
 import express from "express";
 import pg from "pg";
 import path from "node:path";
+import os from "node:os";
 import { readFile } from "node:fs/promises";
 
 const app = express();
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? 8000);
+const hostname = os.hostname();
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.DB_POOL_SIZE ?? 5),
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT ?? 5432),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  max: 5,
   connectionTimeoutMillis: 5000,
 });
+
+// Without this, an idle client dropped by a DB restart crashes the process.
+pool.on("error", (error) => console.error("Idle DB client error:", error));
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
@@ -35,7 +44,10 @@ app.get("/", async (_req, res, next) => {
           .slice(0, 19) + " UTC",
     }));
 
-    res.render("index", { observations });
+    // Default for the datetime-local field: current UTC time, YYYY-MM-DDTHH:mm.
+    const now = new Date().toISOString().slice(0, 16);
+
+    res.render("index", { observations, now, hostname });
   } catch (error) {
     next(error);
   }
@@ -113,12 +125,29 @@ app.use(
   },
 );
 
+// Retry until the DB is reachable: 1s, 2s, 4s ... capped at 30s.
+async function initSchema(schema: string) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await pool.query(schema);
+      console.log("Database schema ready.");
+      return;
+    } catch (error) {
+      const delay = Math.min(1000 * 2 ** (attempt - 1), 30000);
+      console.error(
+        `Database not ready (attempt ${attempt}): ${(error as Error).message}; retrying in ${delay / 1000}s`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 async function main() {
   const schemaPath = path.join(__dirname, "schema.sql");
   const schema = await readFile(schemaPath, "utf8");
 
-  await pool.query(schema);
-
+  // Listen first so SIGTERM is handled even while waiting for the DB.
+  // Until the schema exists, GET / fails and Traefik keeps the replica out.
   const server = app.listen(port, "0.0.0.0", () => {
     console.log(`NERDS uc Wild Cam app listening on port ${port}`);
   });
@@ -139,6 +168,8 @@ async function main() {
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
+
+  await initSchema(schema);
 }
 
 main().catch(async (error: unknown) => {

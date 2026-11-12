@@ -27,6 +27,7 @@
         id="observed_at"
         name="observed_at"
         type="datetime-local"
+        value="<%= now %>"
         required
       >
     </p>
@@ -69,5 +70,9 @@
       <% } %>
     </tbody>
   </table>
+
+  <footer>
+    <p>Served by container: <strong><%= hostname %></strong></p>
+  </footer>
 </body>
 </html>

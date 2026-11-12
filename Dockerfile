@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN cp src/schema.sql dist/schema.sql
 RUN npm prune --omit=dev
 
 # Production stage
-FROM node:22-alpine AS production
+FROM node:26-alpine AS production
 
 ENV NODE_ENV=production
 WORKDIR /app
@@ -30,6 +30,6 @@ COPY --from=build --chown=node:node /app/views ./views
 
 USER node
 
-EXPOSE 3000
+EXPOSE 8000
 
 CMD ["node", "dist/app.js"]
