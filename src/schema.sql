@@ -4,7 +4,7 @@
 -- held until the end of this file.
 SELECT pg_advisory_xact_lock(482617);
 
-CREATE TABLE IF NOT EXISTS observations (
+CREATE TABLE IF NOT EXISTS {{table}} (
     id BIGSERIAL PRIMARY KEY,
     animal TEXT NOT NULL,
     stream TEXT NOT NULL,
@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS observations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_observations_observed_at
-    ON observations (observed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_{{table}}_observed_at
+    ON {{table}} (observed_at DESC);
