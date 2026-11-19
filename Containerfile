@@ -1,4 +1,7 @@
-FROM node:26-alpine AS build
+# Podman-friendly: fully qualified image names, rootless-safe non-root user.
+# One image; one container runs both apps (land-air :8001, sea :8002).
+#   podman build -t wildcam .
+FROM docker.io/library/node:26-alpine AS build
 
 WORKDIR /app
 
@@ -11,14 +14,12 @@ COPY views ./views
 
 RUN npm run build
 
-# Make the SQL schema available beside the compiled app.
+# Make the SQL schema available beside the compiled apps.
 RUN cp src/schema.sql dist/schema.sql
 
-# Remove development dependencies.
 RUN npm prune --omit=dev
 
-# Production stage
-FROM node:26-alpine AS production
+FROM docker.io/library/node:26-alpine AS production
 
 ENV NODE_ENV=production
 WORKDIR /app
@@ -30,6 +31,6 @@ COPY --from=build --chown=node:node /app/views ./views
 
 USER node
 
-EXPOSE 8000
+EXPOSE 8001 8002
 
-CMD ["node", "dist/app.js"]
+CMD ["node", "dist/main.js"]
