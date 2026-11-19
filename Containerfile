@@ -1,7 +1,6 @@
 # Podman-friendly: fully qualified image names, rootless-safe non-root user.
-# Build one image per app:
-#   podman build --build-arg APP=land-air -t wildcam-land-air .
-#   podman build --build-arg APP=sea      -t wildcam-sea .
+# One image; one container runs both apps (land-air :8001, sea :8002).
+#   podman build -t wildcam .
 FROM docker.io/library/node:26-alpine AS build
 
 WORKDIR /app
@@ -22,9 +21,7 @@ RUN npm prune --omit=dev
 
 FROM docker.io/library/node:26-alpine AS production
 
-ARG APP=land-air
-ENV NODE_ENV=production \
-    APP=${APP}
+ENV NODE_ENV=production
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/package.json ./
@@ -34,7 +31,6 @@ COPY --from=build --chown=node:node /app/views ./views
 
 USER node
 
-EXPOSE 8000
+EXPOSE 8001 8002
 
-# Shell form so $APP expands; exec keeps node as PID 1 for signal handling.
-CMD ["sh", "-c", "exec node dist/${APP}.js"]
+CMD ["node", "dist/main.js"]

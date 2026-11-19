@@ -12,9 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [land-air, sea]
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +26,5 @@ jobs:
         with:
           push: true
           file: Containerfile
-          build-args: APP=${{ matrix.app }}
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository }}-${{ matrix.app }}:latest
+          tags: ghcr.io/${{ github.repository }}:latest

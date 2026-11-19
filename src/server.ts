@@ -10,11 +10,14 @@ export interface AppConfig {
   title: string;
   /** Table name; must be a trusted constant (it is interpolated into SQL). */
   table: string;
+  /** Port this app listens on. */
+  port: number;
 }
 
 const hostname = os.hostname();
 
-export async function run(config: AppConfig) {
+/** Starts one app; returns a function that stops it gracefully. */
+export function run(config: AppConfig): () => Promise<void> {
   const pool = new pg.Pool({
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT ?? 5432),
@@ -29,7 +32,7 @@ export async function run(config: AppConfig) {
   pool.on("error", (error) => console.error("Idle DB client error:", error));
 
   const app = express();
-  const port = Number(process.env.PORT ?? 8000);
+  const { port } = config;
 
   app.set("view engine", "ejs");
   app.set("views", path.join(__dirname, "../views"));
@@ -151,42 +154,23 @@ export async function run(config: AppConfig) {
     }
   }
 
-  async function main() {
-    const schemaPath = path.join(__dirname, "schema.sql");
-    const schema = (await readFile(schemaPath, "utf8")).replaceAll(
-      "{{table}}",
-      config.table,
-    );
+  const server = app.listen(port, "0.0.0.0", () => {
+    console.log(`NERDS uc Wild Cam (${config.title}) listening on port ${port}`);
+  });
 
-    // Listen first so SIGTERM is handled even while waiting for the DB.
-    // Until the schema exists, GET / fails and Traefik keeps the replica out.
-    const server = app.listen(port, "0.0.0.0", () => {
-      console.log(`NERDS uc Wild Cam (${config.title}) listening on port ${port}`);
+  // Listening first keeps SIGTERM handling live while waiting for the DB.
+  // Until the schema exists, GET / fails and Traefik keeps the replica out.
+  readFile(path.join(__dirname, "schema.sql"), "utf8")
+    .then((schema) => initSchema(schema.replaceAll("{{table}}", config.table)))
+    .catch((error: unknown) => {
+      console.error(`Failed to start ${config.title}:`, error);
+      process.exit(1);
     });
 
-    // Gracefully shut down when the container is stopped the container.
-    const shutdown = (signal: string) => {
-      console.log(`${signal} received; shutting down...`);
-
+  return () =>
+    new Promise<void>((resolve) => {
       server.close(() => {
-        void pool.end().then(() => {
-          process.exit(0);
-        });
+        void pool.end().then(() => resolve());
       });
-
-      // Force shutdown if existing connections do not close.
-      setTimeout(() => process.exit(1), 10000).unref();
-    };
-
-    process.on("SIGTERM", () => shutdown("SIGTERM"));
-    process.on("SIGINT", () => shutdown("SIGINT"));
-
-    await initSchema(schema);
-  }
-
-  main().catch(async (error: unknown) => {
-    console.error("Failed to start application:", error);
-    await pool.end();
-    process.exit(1);
-  });
+    });
 }
